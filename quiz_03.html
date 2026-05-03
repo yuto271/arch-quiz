@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>建築マスタークイズ（外部データ版）</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 500px; padding: 20px; box-sizing: border-box; }
+        .img-container { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        img { width: 100%; border-radius: 8px; cursor: pointer; border: 2px solid #eee; }
+        .label { font-size: 12px; color: #666; margin-bottom: 2px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #result { margin-top: 20px; display: none; line-height: 1.6; }
+        .correct { color: #28a745; font-weight: bold; }
+        .wrong { color: #dc3545; font-weight: bold; }
+        .info-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        .info-table td { border-bottom: 1px solid #eee; padding: 8px 0; }
+        .info-table td:first-child { font-weight: bold; width: 30%; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>建築クイズ 🏗️</h2>
+    <div class="img-container">
+        <div><div class="label">ヒント1: 外観</div><img id="img-ext" src="" alt="外観"></div>
+        <div id="hints" style="display:none;">
+            <div><div class="label">ヒント2: 内観</div><img id="img-int" src="" alt="内観"></div>
+            <div><div class="label">ヒント3: 平面図</div><img id="img-plan" src="" alt="平面図"></div>
+        </div>
+    </div>
+    
+    <button onclick="showHints()" style="background:#6c757d; margin-bottom:10px;">他のヒント（内観・図面）を表示</button>
+    
+    <input type="text" id="answerInput" placeholder="設計者名を答えてください">
+    <button onclick="checkAnswer()">回答する</button>
+
+    <div id="result">
+        <p id="feedback"></p>
+        <table class="info-table">
+            <tr><td>名称</td><td id="res-name"></td></tr>
+            <tr><td>設計者</td><td id="res-arch"></td></tr>
+            <tr><td>竣工/再建</td><td id="res-year"></td></tr>
+            <tr><td>所在地</td><td id="res-loc"></td></tr>
+            <tr><td>特徴</td><td id="res-desc"></td></tr>
+        </table>
+        <button onclick="nextQuestion()" style="margin-top:15px; background:#28a745;">次の問題へ</button>
+    </div>
+</div>
+
+<script>
+    // --- 設定：JSONデータの場所 ---
+    // ローカルファイルの場合は 'quiz_data.json'
+    // ネット上のリンクの場合は 'https://.../quiz_data.json' を記入
+    const JSON_URL = 'quiz_data.json'; 
+
+    let quizData = []; 
+    let currentQ;
+
+    // 1. JSONファイルを読み込む関数
+    async function loadQuizData() {
+        try {
+            const response = await fetch(JSON_URL);
+            if (!response.ok) {
+                throw new Error('データの読み込みに失敗しました。URLを確認してください。');
+            }
+            quizData = await response.json();
+            console.log("読み込み完了:", quizData.length + "件");
+            nextQuestion(); // 読み込みが終わったら最初の問題を表示
+        } catch (error) {
+            console.error('エラー:', error);
+            alert('クイズデータを読み込めませんでした。CORS制限やファイルパスを確認してください。');
+        }
+    }
+
+    // 2. 次の問題を表示する処理
+    function nextQuestion() {
+        if (quizData.length === 0) return;
+
+        // ランダムに一問選択
+        currentQ = quizData[Math.floor(Math.random() * quizData.length)];
+        
+        // 画像をセット
+        document.getElementById('img-ext').src = currentQ.ext;
+        document.getElementById('img-int').src = currentQ.int;
+        
+        // 平面図がURL形式でない場合はプレースホルダーを表示
+        document.getElementById('img-plan').src = currentQ.plan.includes('http') && !currentQ.plan.includes('search') 
+            ? currentQ.plan 
+            : "https://via.placeholder.com/400x200?text=No+Plan+Image+(Click+Search)";
+        
+        // 表示のリセット
+        document.getElementById('hints').style.display = 'none';
+        document.getElementById('result').style.display = 'none';
+        document.getElementById('answerInput').value = '';
+    }
+
+    // 3. ヒントを表示する処理[cite: 1]
+    function showHints() {
+        document.getElementById('hints').style.display = 'block';
+    }
+
+    // 4. 正誤判定の処理[cite: 1]
+    function checkAnswer() {
+        const userAns = document.getElementById('answerInput').value;
+        const feedback = document.getElementById('feedback');
+        
+        if (userAns.includes(currentQ.arch)) {
+            feedback.innerHTML = '<span class="correct">正解です！</span>';
+        } else {
+            feedback.innerHTML = `<span class="wrong">残念！正解は ${currentQ.arch} です。</span>`;
+        }
+
+        document.getElementById('res-name').innerText = currentQ.name;
+        document.getElementById('res-arch').innerText = currentQ.arch;
+        document.getElementById('res-year').innerText = currentQ.year;
+        document.getElementById('res-loc').innerText = currentQ.loc;
+        document.getElementById('res-desc').innerText = currentQ.desc;
+        document.getElementById('result').style.display = 'block';
+    }
+
+    // アプリ起動時にデータを読み込む
+    loadQuizData();
+</script>
+</body>
+</html>
